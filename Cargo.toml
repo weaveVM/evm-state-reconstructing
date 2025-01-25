@@ -3,6 +3,10 @@ name = "evm-state-reconstructing"
 version = "0.1.0"
 edition = "2021"
 
+[lib]
+name = "evm_state_reconstructing"
+path = "src/lib.rs"
+
 [[bin]]
 name = "evm-state-reconstructing"
 path = "src/main.rs"

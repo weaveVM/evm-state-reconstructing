@@ -1,4 +1,3 @@
-use crate::utils::constants::{WVM_RPC_URL};
 use ethers::types::{Block, Transaction, TransactionReceipt};
 use ethers::providers::{Provider, Http};
 use std::sync::Arc;
