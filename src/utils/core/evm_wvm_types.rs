@@ -42,7 +42,7 @@ pub struct WvmTransaction {
 }
 
 #[derive(BorshSerialize, BorshDeserialize, Debug, Clone, PartialEq, Eq)]
-pub struct WvmBlock {
+pub struct WvmBlock<WvmTransaction> {
     pub hash: Option<[u8; 32]>,
     pub parent_hash: [u8; 32],
     pub uncles_hash: [u8; 32],
@@ -266,7 +266,77 @@ impl From<WvmTransaction> for Transaction {
     }
 }
 
-impl From<Block<Transaction>> for WvmBlock {
+impl From<TransactionReceipt> for WvmTransactionReceipt {
+    fn from(receipt: TransactionReceipt) -> Self {
+        Self {
+            transaction_hash: receipt.transaction_hash.0,
+            transaction_index: receipt.transaction_index.as_u64(),
+            block_hash: receipt.block_hash.map(|h| h.0),
+            block_number: receipt.block_number.map(|n| n.as_u64()),
+            from: receipt.from.0,
+            to: receipt.to.map(|a| a.0),
+            cumulative_gas_used: {
+                let mut bytes = [0u8; 32];
+                receipt.cumulative_gas_used.to_big_endian(&mut bytes);
+                bytes
+            },
+            gas_used: receipt.gas_used.map(|g| {
+                let mut bytes = [0u8; 32];
+                g.to_big_endian(&mut bytes);
+                bytes
+            }),
+            contract_address: receipt.contract_address.map(|a| a.0),
+            logs: receipt.logs.into_iter().map(Into::into).collect(),
+            status: receipt.status.map(|s| s.as_u64()),
+            root: receipt.root.map(|r| r.0),
+            logs_bloom: receipt.logs_bloom.0,
+            transaction_type: receipt.transaction_type.map(|t| t.as_u64()),
+            effective_gas_price: receipt.effective_gas_price.map(|p| {
+                let mut bytes = [0u8; 32];
+                p.to_big_endian(&mut bytes);
+                bytes
+            }),
+            deposit_nonce: receipt
+                .other
+                .get("depositNonce")
+                .and_then(|v| v.as_str())
+                .map(|n| u64::from_str_radix(&n[2..], 16).unwrap()),
+            l1_fee: None,
+            l1_fee_scalar: None,
+            l1_gas_price: None,
+            l1_gas_used: None,
+        }
+    }
+}
+
+impl From<Log> for WvmLog {
+    fn from(log: Log) -> Self {
+        Self {
+            address: log.address.0,
+            topics: log.topics.into_iter().map(|t| t.0).collect(),
+            data: log.data.to_vec(),
+            block_hash: log.block_hash.map(|h| h.0),
+            block_number: log.block_number.map(|n| n.as_u64()),
+            transaction_hash: log.transaction_hash.map(|h| h.0),
+            transaction_index: log.transaction_index.map(|i| i.as_u64()),
+            log_index: log.log_index.map(|i| i.as_u64()),
+            removed: log.removed.is_some(),
+        }
+    }
+}
+
+impl From<Withdrawal> for WvmWithdrawal {
+    fn from(withdrawal: Withdrawal) -> Self {
+        Self {
+            index: withdrawal.index.as_u64(),
+            validator_index: withdrawal.validator_index.as_u64(),
+            address: withdrawal.address.0,
+            amount: withdrawal.amount.as_u64(),
+        }
+    }
+}
+
+impl From<Block<Transaction>> for WvmBlock<WvmTransaction> {
     fn from(block: Block<Transaction>) -> Self {
         Self {
             hash: block.hash.map(|h| h.0),
@@ -338,72 +408,54 @@ impl From<Block<Transaction>> for WvmBlock {
     }
 }
 
-impl From<TransactionReceipt> for WvmTransactionReceipt {
-    fn from(receipt: TransactionReceipt) -> Self {
+impl From<WvmBlock<WvmTransaction>> for Block<Transaction> {
+    fn from(wvm_block: WvmBlock<WvmTransaction>) -> Self {
         Self {
-            transaction_hash: receipt.transaction_hash.0,
-            transaction_index: receipt.transaction_index.as_u64(),
-            block_hash: receipt.block_hash.map(|h| h.0),
-            block_number: receipt.block_number.map(|n| n.as_u64()),
-            from: receipt.from.0,
-            to: receipt.to.map(|a| a.0),
-            cumulative_gas_used: {
-                let mut bytes = [0u8; 32];
-                receipt.cumulative_gas_used.to_big_endian(&mut bytes);
-                bytes
-            },
-            gas_used: receipt.gas_used.map(|g| {
-                let mut bytes = [0u8; 32];
-                g.to_big_endian(&mut bytes);
-                bytes
-            }),
-            contract_address: receipt.contract_address.map(|a| a.0),
-            logs: receipt.logs.into_iter().map(Into::into).collect(),
-            status: receipt.status.map(|s| s.as_u64()),
-            root: receipt.root.map(|r| r.0),
-            logs_bloom: receipt.logs_bloom.0,
-            transaction_type: receipt.transaction_type.map(|t| t.as_u64()),
-            effective_gas_price: receipt.effective_gas_price.map(|p| {
-                let mut bytes = [0u8; 32];
-                p.to_big_endian(&mut bytes);
-                bytes
-            }),
-            deposit_nonce: receipt
-                .other
-                .get("depositNonce")
-                .and_then(|v| v.as_str())
-                .map(|n| u64::from_str_radix(&n[2..], 16).unwrap()),
-            l1_fee: None,
-            l1_fee_scalar: None,
-            l1_gas_price: None,
-            l1_gas_used: None,
+            hash: wvm_block.hash.map(H256::from),
+            parent_hash: H256::from(wvm_block.parent_hash),
+            uncles_hash: H256::from(wvm_block.uncles_hash),
+            author: wvm_block.author.map(Address::from),
+            state_root: H256::from(wvm_block.state_root),
+            transactions_root: H256::from(wvm_block.transactions_root),
+            receipts_root: H256::from(wvm_block.receipts_root),
+            number: wvm_block.number.map(U64::from),
+            gas_used: U256::from_big_endian(&wvm_block.gas_used),
+            gas_limit: U256::from_big_endian(&wvm_block.gas_limit),
+            extra_data: Bytes::from(wvm_block.extra_data),
+            logs_bloom: wvm_block.logs_bloom.map(|b| ethers::types::Bloom::from(b)),
+            timestamp: U256::from_big_endian(&wvm_block.timestamp),
+            difficulty: U256::from_big_endian(&wvm_block.difficulty),
+            total_difficulty: wvm_block
+                .total_difficulty
+                .map(|d| U256::from_big_endian(&d)),
+            seal_fields: wvm_block.seal_fields.into_iter().map(Bytes::from).collect(),
+            uncles: wvm_block.uncles.into_iter().map(H256::from).collect(),
+            transactions: wvm_block.transactions.into_iter().map(Into::into).collect(),
+            size: wvm_block.size.map(|s| U256::from_big_endian(&s)),
+            mix_hash: wvm_block.mix_hash.map(H256::from),
+            nonce: wvm_block.nonce.map(|n| ethers::types::H64::from(n)),
+            base_fee_per_gas: wvm_block
+                .base_fee_per_gas
+                .map(|f| U256::from_big_endian(&f)),
+            blob_gas_used: wvm_block.blob_gas_used.map(|g| U256::from_big_endian(&g)),
+            excess_blob_gas: wvm_block.excess_blob_gas.map(|g| U256::from_big_endian(&g)),
+            withdrawals_root: wvm_block.withdrawals_root.map(H256::from),
+            withdrawals: wvm_block
+                .withdrawals
+                .map(|w| w.into_iter().map(Into::into).collect()),
+            parent_beacon_block_root: wvm_block.parent_beacon_block_root.map(H256::from),
+            other: Default::default(),
         }
     }
 }
 
-impl From<Log> for WvmLog {
-    fn from(log: Log) -> Self {
+impl From<WvmWithdrawal> for Withdrawal {
+    fn from(w: WvmWithdrawal) -> Self {
         Self {
-            address: log.address.0,
-            topics: log.topics.into_iter().map(|t| t.0).collect(),
-            data: log.data.to_vec(),
-            block_hash: log.block_hash.map(|h| h.0),
-            block_number: log.block_number.map(|n| n.as_u64()),
-            transaction_hash: log.transaction_hash.map(|h| h.0),
-            transaction_index: log.transaction_index.map(|i| i.as_u64()),
-            log_index: log.log_index.map(|i| i.as_u64()),
-            removed: log.removed.is_some(),
-        }
-    }
-}
-
-impl From<Withdrawal> for WvmWithdrawal {
-    fn from(withdrawal: Withdrawal) -> Self {
-        Self {
-            index: withdrawal.index.as_u64(),
-            validator_index: withdrawal.validator_index.as_u64(),
-            address: withdrawal.address.0,
-            amount: withdrawal.amount.as_u64(),
+            index: U64::from(w.index),
+            validator_index: U64::from(w.validator_index),
+            address: Address::from(w.address),
+            amount: U256::from(w.amount),
         }
     }
 }

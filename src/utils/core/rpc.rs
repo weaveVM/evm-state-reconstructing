@@ -1,3 +1,4 @@
+use crate::utils::core::evm_wvm_types::{WvmBlock, WvmTransaction, WvmTransactionReceipt};
 use ethers::middleware::Middleware;
 use ethers::providers::{Http, Provider};
 use ethers::types::{Block, Transaction, TransactionReceipt};
@@ -12,12 +13,15 @@ pub async fn get_block_txs_receipts(
     // fetch block with full transactions
     let block: Option<Block<Transaction>> = provider.get_block_with_txs(block_number).await?;
     if let Some(block) = block {
+        let wvm_block: WvmBlock<WvmTransaction> = WvmBlock::from(block.clone());
+        let block_2: Block<Transaction> = wvm_block.into();
+        println!("{:?}", block_2);
         let mut receipts = vec![];
 
         // fetch receipts for each transaction
         for tx in &block.transactions {
             if let Some(receipt) = provider.get_transaction_receipt(tx.hash).await? {
-                println!("{:#?}", receipt);
+                // println!("{:#?}", receipt);
                 receipts.push(receipt);
             } else {
                 println!("Receipt not found for transaction: {:?}", tx.hash);
