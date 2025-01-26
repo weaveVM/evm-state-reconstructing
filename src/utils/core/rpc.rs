@@ -17,6 +17,7 @@ pub async fn get_block_txs_receipts(
         // fetch receipts for each transaction
         for tx in &block.transactions {
             if let Some(receipt) = provider.get_transaction_receipt(tx.hash).await? {
+                println!("{:#?}", receipt);
                 receipts.push(receipt);
             } else {
                 println!("Receipt not found for transaction: {:?}", tx.hash);
