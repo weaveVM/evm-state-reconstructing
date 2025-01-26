@@ -1,8 +1,7 @@
-use ethereum_types::{H256, U256, H160};
+use crate::utils::core::genesis_load::Genesis;
+use ethereum_types::{H160, H256, U256};
 use ethers::types::{Block, Transaction, TransactionReceipt};
 use std::collections::HashMap;
-use crate::utils::core::genesis_load::Genesis;
-
 
 #[derive(Debug, Clone)]
 pub struct AccountState {
@@ -34,14 +33,14 @@ impl StateReconstructor {
                 .entry(H256::from(from))
                 .or_insert(AccountState {
                     nonce: U256::zero(),
-                    balance: U256::zero(), 
+                    balance: U256::zero(),
                     storage: HashMap::new(),
                     code: Vec::new(),
                 });
-    
+
             let gas_cost =
                 tx.gas_price.unwrap_or_default() * U256::from(receipt.gas_used.unwrap_or_default());
-    
+
             // Verify the sender has enough balance
             if sender.balance >= gas_cost + tx.value {
                 sender.balance -= gas_cost + tx.value;
@@ -53,7 +52,7 @@ impl StateReconstructor {
                 );
             }
         }
-    
+
         // update recipient account
         if let Some(to) = tx.to {
             let recipient = self.accounts.entry(H256::from(to)).or_insert(AccountState {
@@ -62,15 +61,15 @@ impl StateReconstructor {
                 storage: HashMap::new(),
                 code: Vec::new(),
             });
-    
+
             recipient.balance += tx.value;
-    
+
             // if the transaction deploys a contract, set its code
             if tx.input.len() > 0 {
                 recipient.code = tx.input.to_vec();
             }
         }
-    
+
         // update storage based on transaction logs
         for log in &receipt.logs {
             let account = self
@@ -82,7 +81,7 @@ impl StateReconstructor {
                     storage: HashMap::new(),
                     code: Vec::new(),
                 });
-    
+
             if log.topics.len() >= 2 {
                 let storage_key = log.topics[0];
                 let storage_value = log.topics[1];
@@ -90,7 +89,6 @@ impl StateReconstructor {
             }
         }
     }
-    
 
     pub fn apply_block(&mut self, block: &Block<Transaction>, receipts: &[TransactionReceipt]) {
         assert_eq!(
@@ -113,7 +111,8 @@ impl StateReconstructor {
     pub fn initialize_from_genesis(&mut self, genesis: Genesis) {
         for (address, alloc) in genesis.alloc {
             let balance = U256::from_dec_str(&alloc.balance).unwrap_or_else(|_| U256::zero());
-            let code = hex::decode(alloc.code.strip_prefix("0x").unwrap_or("")).unwrap_or_else(|_| vec![]);
+            let code =
+                hex::decode(alloc.code.strip_prefix("0x").unwrap_or("")).unwrap_or_else(|_| vec![]);
             let storage = alloc.storage;
 
             self.accounts.insert(
