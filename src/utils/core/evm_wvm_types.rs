@@ -1,4 +1,5 @@
 use borsh_derive::{BorshDeserialize, BorshSerialize};
+use ethers::core::k256::elliptic_curve::consts::U25;
 use ethers::types::transaction::eip2930::AccessList;
 use ethers::types::transaction::eip2930::AccessListItem;
 use ethers::types::{
@@ -117,6 +118,8 @@ pub struct WvmLog {
     pub transaction_index: Option<u64>,
     pub log_index: Option<u64>,
     pub removed: bool,
+    pub transaction_log_index: Option<u64>,
+    pub log_type: Option<String>,
 }
 
 impl From<Transaction> for WvmTransaction {
@@ -309,22 +312,6 @@ impl From<TransactionReceipt> for WvmTransactionReceipt {
     }
 }
 
-impl From<Log> for WvmLog {
-    fn from(log: Log) -> Self {
-        Self {
-            address: log.address.0,
-            topics: log.topics.into_iter().map(|t| t.0).collect(),
-            data: log.data.to_vec(),
-            block_hash: log.block_hash.map(|h| h.0),
-            block_number: log.block_number.map(|n| n.as_u64()),
-            transaction_hash: log.transaction_hash.map(|h| h.0),
-            transaction_index: log.transaction_index.map(|i| i.as_u64()),
-            log_index: log.log_index.map(|i| i.as_u64()),
-            removed: log.removed.is_some(),
-        }
-    }
-}
-
 impl From<Withdrawal> for WvmWithdrawal {
     fn from(withdrawal: Withdrawal) -> Self {
         Self {
@@ -456,6 +443,73 @@ impl From<WvmWithdrawal> for Withdrawal {
             validator_index: U64::from(w.validator_index),
             address: Address::from(w.address),
             amount: U256::from(w.amount),
+        }
+    }
+}
+
+impl From<WvmTransactionReceipt> for TransactionReceipt {
+    fn from(receipt: WvmTransactionReceipt) -> Self {
+        Self {
+            transaction_hash: H256::from(receipt.transaction_hash),
+            transaction_index: U64::from(receipt.transaction_index),
+            block_hash: receipt.block_hash.map(H256::from),
+            block_number: receipt.block_number.map(U64::from),
+            from: Address::from(receipt.from),
+            to: receipt.to.map(Address::from),
+            cumulative_gas_used: U256::from_big_endian(&receipt.cumulative_gas_used),
+            gas_used: receipt.gas_used.map(|g| U256::from_big_endian(&g)),
+            contract_address: receipt.contract_address.map(Address::from),
+            logs: receipt.logs.into_iter().map(Into::into).collect(),
+            status: receipt.status.map(U64::from),
+            root: receipt.root.map(H256::from),
+            logs_bloom: ethers::types::Bloom::from(receipt.logs_bloom),
+            transaction_type: receipt.transaction_type.map(U64::from),
+            effective_gas_price: receipt
+                .effective_gas_price
+                .map(|p| U256::from_big_endian(&p)),
+            other: {
+                let mut other = ethers::types::OtherFields::default();
+                if let Some(nonce) = receipt.deposit_nonce {
+                    other.insert("depositNonce".to_string(), format!("0x{:x}", nonce).into());
+                }
+                other
+            },
+        }
+    }
+}
+
+impl From<Log> for WvmLog {
+    fn from(log: Log) -> Self {
+        Self {
+            address: log.address.0,
+            topics: log.topics.into_iter().map(|t| t.0).collect(),
+            data: log.data.to_vec(),
+            block_hash: log.block_hash.map(|h| h.0),
+            block_number: log.block_number.map(|n| n.as_u64()),
+            transaction_hash: log.transaction_hash.map(|h| h.0),
+            transaction_index: log.transaction_index.map(|i| i.as_u64()),
+            log_index: log.log_index.map(|i| i.as_u64()),
+            removed: log.removed.is_some(),
+            transaction_log_index: log.transaction_log_index.map(|i| i.as_u64()),
+            log_type: log.log_type,
+        }
+    }
+}
+
+impl From<WvmLog> for Log {
+    fn from(log: WvmLog) -> Self {
+        Self {
+            address: Address::from(log.address),
+            topics: log.topics.into_iter().map(H256::from).collect(),
+            data: Bytes::from(log.data),
+            block_hash: log.block_hash.map(H256::from),
+            block_number: log.block_number.map(U64::from),
+            transaction_hash: log.transaction_hash.map(H256::from),
+            transaction_index: log.transaction_index.map(U64::from),
+            log_index: log.log_index.map(U256::from),
+            removed: Some(log.removed),
+            transaction_log_index: log.transaction_log_index.map(U256::from),
+            log_type: log.log_type,
         }
     }
 }

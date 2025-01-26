@@ -21,6 +21,8 @@ pub async fn get_block_txs_receipts(
         // fetch receipts for each transaction
         for tx in &block.transactions {
             if let Some(receipt) = provider.get_transaction_receipt(tx.hash).await? {
+                let wvm_receipt: WvmTransactionReceipt = receipt.into();
+                let receipt: TransactionReceipt = wvm_receipt.into();
                 // println!("{:#?}", receipt);
                 receipts.push(receipt);
             } else {
