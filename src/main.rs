@@ -1,16 +1,14 @@
-use crate::utils::core::genesis_load::{load_genesis_from_file, Genesis};
-use crate::utils::core::networks::Network;
+use crate::utils::core::networks::Networks;
 use crate::utils::core::rpc::get_block_txs_receipts;
 use crate::utils::core::state::StateReconstructor;
-use ethers::providers::{Http, Provider};
 use ethers::types::H256;
 
 pub mod utils;
 
 #[tokio::main]
 async fn main() {
-    let network = Network::phala();
-    let provider: Provider<Http> = Provider::<Http>::try_from(network.rpc_url).unwrap();
+    let network = Networks::phala();
+    let provider = network.rpc_provider;
 
     // initialize StateReconstructor with genesis.json config
     let mut reconstructor = StateReconstructor::new();
