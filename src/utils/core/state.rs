@@ -1,5 +1,5 @@
 use crate::utils::core::genesis_load::Genesis;
-use ethereum_types::{H160, H256, U256};
+use ethereum_types::{H256, U256};
 use ethers::types::{Block, Transaction, TransactionReceipt};
 use std::collections::HashMap;
 

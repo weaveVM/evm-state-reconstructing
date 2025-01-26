@@ -1,6 +1,6 @@
 use crate::utils::core::networks::Networks;
 use crate::utils::core::rpc::get_block_txs_receipts;
-use crate::utils::core::state::StateReconstructor;
+use crate::utils::core::evm_exec::StateReconstructor;
 use ethers::types::H256;
 
 pub mod utils;
@@ -11,8 +11,8 @@ async fn main() {
     let provider = network.rpc_provider;
 
     // initialize StateReconstructor with genesis.json config
-    let mut reconstructor = StateReconstructor::new();
-    reconstructor.initialize_from_genesis(network.genesis_file);
+    let mut reconstructor = StateReconstructor::from_genesis(&network.genesis_file);
+    // reconstructor.initialize_from_genesis(network.genesis_file);
 
     for (address, state) in &reconstructor.accounts {
         println!("Address: {:?}, State: {:?}", address, state);
@@ -20,11 +20,11 @@ async fn main() {
 
     println!("\n[*] Fetching and reconstructing blocks");
 
-    for block_nr in 0..10 {
+    for block_nr in 0..3000 {
         match get_block_txs_receipts(provider.clone(), block_nr).await {
             Ok((block, receipts)) => {
                 // apply block to the chain state
-                reconstructor.apply_block(&block, &receipts);
+                let _ = reconstructor.apply_block(&block, &receipts);
 
                 for tx in &block.transactions {
                     let sender = tx.from;
