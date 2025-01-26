@@ -1,4 +1,4 @@
-use crate::utils::constants::WVM_RPC_URL;
+use crate::utils::constants::{WVM_RPC_URL, PHALA_RPC_URL};
 use crate::utils::core::rpc::get_block_txs_receipts;
 use crate::utils::core::genesis_load::{Genesis, load_genesis_from_file};
 use crate::utils::core::state::StateReconstructor;
@@ -10,9 +10,9 @@ pub mod utils;
 
 #[tokio::main]
 async fn main() {
-    let genesis: Genesis = load_genesis_from_file("./genesis.json");
+    let genesis: Genesis = load_genesis_from_file("./genesis/phala_mainnet.json");
     println!("{:?}", genesis);
-    let provider: Provider<Http> = Provider::<Http>::try_from(WVM_RPC_URL).unwrap();
+    let provider: Provider<Http> = Provider::<Http>::try_from(PHALA_RPC_URL).unwrap();
 
     // initialize StateReconstructor with genesis.json config
     let mut reconstructor = StateReconstructor::new();
@@ -24,7 +24,7 @@ async fn main() {
 
     println!("\n[*] Fetching and reconstructing blocks");
 
-    for block_nr in 0..9000 {
+    for block_nr in 0..10 {
         match get_block_txs_receipts(provider.clone(), block_nr).await {
             Ok((block, receipts)) => {
 
