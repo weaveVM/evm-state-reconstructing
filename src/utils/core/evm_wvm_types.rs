@@ -1,5 +1,4 @@
 use borsh_derive::{BorshDeserialize, BorshSerialize};
-use ethers::core::k256::elliptic_curve::consts::U25;
 use ethers::types::transaction::eip2930::AccessList;
 use ethers::types::transaction::eip2930::AccessListItem;
 use ethers::types::{
