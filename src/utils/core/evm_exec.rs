@@ -1,14 +1,13 @@
+use crate::utils::core::genesis_load::Genesis;
 use ethereum_types::{H160, H256, U256};
+use ethers::types::{Block, Transaction, TransactionReceipt};
+use ethers::utils::rlp;
 use revm::{
     db::InMemoryDB,
-    primitives::{TransactTo, ExecutionResult, U256 as rU256, Address},
-    Evm,
-    Database
+    primitives::{Address, ExecutionResult, TransactTo, U256 as rU256},
+    Database, Evm,
 };
-use ethers::types::{Transaction, Block, TransactionReceipt};
 use std::collections::HashMap;
-use crate::utils::core::genesis_load::Genesis;
-use ethers::utils::rlp;
 
 #[derive(Debug, Clone)]
 pub struct AccountState {
@@ -51,7 +50,9 @@ impl StateReconstructor {
         self.evm.tx_mut().caller = from_addr.0.into();
         self.evm.tx_mut().gas_price = rU256::from(tx.gas_price.unwrap_or_default().as_u64());
         self.evm.tx_mut().gas_limit = tx.gas.as_u64();
-        self.evm.tx_mut().transact_to = to_addr.map(|t| TransactTo::Call(t.0.into())).unwrap_or(TransactTo::Create);
+        self.evm.tx_mut().transact_to = to_addr
+            .map(|t| TransactTo::Call(t.0.into()))
+            .unwrap_or(TransactTo::Create);
         self.evm.tx_mut().value = rU256::from(tx.value.as_u64());
         self.evm.tx_mut().data = tx.input.to_vec().into();
 
@@ -67,9 +68,14 @@ impl StateReconstructor {
                         from_addr.into(),
                         AccountState {
                             nonce: account_info.nonce.into(),
-                            balance: U256::from_big_endian(&account_info.balance.to_be_bytes::<32>()),
+                            balance: U256::from_big_endian(
+                                &account_info.balance.to_be_bytes::<32>(),
+                            ),
                             storage: HashMap::new(),
-                            code: account_info.code.map(|code| code.bytecode().to_vec()).unwrap_or_default(),
+                            code: account_info
+                                .code
+                                .map(|code| code.bytecode().to_vec())
+                                .unwrap_or_default(),
                         },
                     );
                 }
@@ -83,9 +89,14 @@ impl StateReconstructor {
                             to_addr.into(),
                             AccountState {
                                 nonce: account_info.nonce.into(),
-                                balance: U256::from_big_endian(&account_info.balance.to_be_bytes::<32>()),
+                                balance: U256::from_big_endian(
+                                    &account_info.balance.to_be_bytes::<32>(),
+                                ),
                                 storage: HashMap::new(),
-                                code: account_info.code.map(|code| code.bytecode().to_vec()).unwrap_or_default(),
+                                code: account_info
+                                    .code
+                                    .map(|code| code.bytecode().to_vec())
+                                    .unwrap_or_default(),
                             },
                         );
                     }
@@ -99,23 +110,29 @@ impl StateReconstructor {
                         db.basic(from_addr.0.into())?.unwrap().nonce
                     };
                     let contract_address = H160::from_slice(
-                        &revm::primitives::keccak256(
-                            &rlp::encode_list::<&[u8], &[u8]>(&[
-                                &from_addr.0.as_ref(), // Convert [u8; 20] to &[u8]
-                                &sender_nonce.to_be_bytes().as_ref(), // Convert u64 to &[u8]
-                            ]),
-                        )[12..],
+                        &revm::primitives::keccak256(&rlp::encode_list::<&[u8], &[u8]>(&[
+                            &from_addr.0.as_ref(),                // Convert [u8; 20] to &[u8]
+                            &sender_nonce.to_be_bytes().as_ref(), // Convert u64 to &[u8]
+                        ]))[12..],
                     );
                     // Insert the new contract's account state
-                    let contract_info = self.evm.db_mut().basic(Address::from_slice(&contract_address.0))?;
+                    let contract_info = self
+                        .evm
+                        .db_mut()
+                        .basic(Address::from_slice(&contract_address.0))?;
                     if let Some(account_info) = contract_info {
                         self.accounts.insert(
                             H256::from_slice(&contract_address.0),
                             AccountState {
                                 nonce: account_info.nonce.into(),
-                                balance: U256::from_big_endian(&account_info.balance.to_be_bytes::<32>()),
+                                balance: U256::from_big_endian(
+                                    &account_info.balance.to_be_bytes::<32>(),
+                                ),
                                 storage: HashMap::new(),
-                                code: account_info.code.map(|code| code.bytecode().to_vec()).unwrap_or_default(),
+                                code: account_info
+                                    .code
+                                    .map(|code| code.bytecode().to_vec())
+                                    .unwrap_or_default(),
                             },
                         );
                     }
@@ -132,7 +149,11 @@ impl StateReconstructor {
         Ok(())
     }
 
-    pub fn apply_block(&mut self, block: &Block<Transaction>, receipts: &[TransactionReceipt]) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn apply_block(
+        &mut self,
+        block: &Block<Transaction>,
+        receipts: &[TransactionReceipt],
+    ) -> Result<(), Box<dyn std::error::Error>> {
         assert_eq!(
             block.transactions.len(),
             receipts.len(),
@@ -159,17 +180,21 @@ impl StateReconstructor {
                 tx.gas_price = rU256::ZERO;
             })
             .modify_block_env(|block| {
-                block.gas_limit = rU256::from_str_radix(&genesis.gas_limit.trim_start_matches("0x"), 16)
-                    .unwrap_or(rU256::from(30_000_000));
+                block.gas_limit =
+                    rU256::from_str_radix(&genesis.gas_limit.trim_start_matches("0x"), 16)
+                        .unwrap_or(rU256::from(30_000_000));
                 block.number = rU256::from_str_radix(&genesis.number.trim_start_matches("0x"), 16)
                     .unwrap_or_default();
-                block.timestamp = rU256::from_str_radix(&genesis.timestamp.trim_start_matches("0x"), 16)
-                    .unwrap_or_default();
+                block.timestamp =
+                    rU256::from_str_radix(&genesis.timestamp.trim_start_matches("0x"), 16)
+                        .unwrap_or_default();
                 block.coinbase = genesis.coinbase.0.into();
-                block.difficulty = rU256::from_str_radix(&genesis.difficulty.trim_start_matches("0x"), 16)
-                    .unwrap_or_default();
-                block.basefee = rU256::from_str_radix(&genesis.base_fee_per_gas.trim_start_matches("0x"), 16)
-                    .unwrap_or_default();
+                block.difficulty =
+                    rU256::from_str_radix(&genesis.difficulty.trim_start_matches("0x"), 16)
+                        .unwrap_or_default();
+                block.basefee =
+                    rU256::from_str_radix(&genesis.base_fee_per_gas.trim_start_matches("0x"), 16)
+                        .unwrap_or_default();
             })
             .build();
 
@@ -184,7 +209,8 @@ impl StateReconstructor {
             let balance = rU256::from_str_radix(&alloc.balance, 10).unwrap_or(rU256::ZERO);
             let code = hex::decode(alloc.code.strip_prefix("0x").unwrap_or("")).unwrap_or_default();
             let nonce = rU256::from_str_radix(&alloc.nonce.trim_start_matches("0x"), 16)
-                .unwrap_or(rU256::ZERO).to::<u64>();
+                .unwrap_or(rU256::ZERO)
+                .to::<u64>();
 
             for (key, value) in &alloc.storage {
                 let _ = state.evm.db_mut().insert_account_storage(

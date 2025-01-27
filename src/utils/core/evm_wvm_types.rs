@@ -1,3 +1,4 @@
+use crate::utils::core::serde_arrays::{deserialize_256, serialize_256};
 use borsh_derive::{BorshDeserialize, BorshSerialize};
 use ethers::types::transaction::eip2930::AccessList;
 use ethers::types::transaction::eip2930::AccessListItem;
@@ -5,9 +6,12 @@ use ethers::types::{
     Address, Block, Bytes, Log, Transaction, TransactionReceipt, Withdrawal, H256, U256, U64,
 };
 use hex;
+use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 
-#[derive(BorshSerialize, BorshDeserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(
+    BorshSerialize, BorshDeserialize, Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default,
+)]
 pub struct WvmTransaction {
     // Optimism fields
     pub source_hash: Option<[u8; 32]>,
@@ -41,7 +45,9 @@ pub struct WvmTransaction {
     pub chain_id: Option<[u8; 32]>,
 }
 
-#[derive(BorshSerialize, BorshDeserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(
+    BorshSerialize, BorshDeserialize, Debug, Default, Clone, PartialEq, Eq, Serialize, Deserialize,
+)]
 pub struct WvmBlock<WvmTransaction> {
     pub hash: Option<[u8; 32]>,
     pub parent_hash: [u8; 32],
@@ -54,6 +60,7 @@ pub struct WvmBlock<WvmTransaction> {
     pub gas_used: [u8; 32],
     pub gas_limit: [u8; 32],
     pub extra_data: Vec<u8>,
+    #[serde(serialize_with = "serialize_256", deserialize_with = "deserialize_256")]
     pub logs_bloom: Option<[u8; 256]>,
     pub timestamp: [u8; 32],
     pub difficulty: [u8; 32],
@@ -72,7 +79,9 @@ pub struct WvmBlock<WvmTransaction> {
     pub parent_beacon_block_root: Option<[u8; 32]>,
 }
 
-#[derive(BorshSerialize, BorshDeserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(
+    BorshSerialize, BorshDeserialize, Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default,
+)]
 pub struct WvmWithdrawal {
     pub index: u64,
     pub validator_index: u64,
@@ -80,7 +89,9 @@ pub struct WvmWithdrawal {
     pub amount: u64,
 }
 
-#[derive(BorshSerialize, BorshDeserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(
+    BorshSerialize, BorshDeserialize, Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default,
+)]
 pub struct WvmTransactionReceipt {
     pub transaction_hash: [u8; 32],
     pub transaction_index: u64,
@@ -94,7 +105,8 @@ pub struct WvmTransactionReceipt {
     pub logs: Vec<WvmLog>,
     pub status: Option<u64>,
     pub root: Option<[u8; 32]>,
-    pub logs_bloom: [u8; 256],
+    #[serde(serialize_with = "serialize_256", deserialize_with = "deserialize_256")]
+    pub logs_bloom: Option<[u8; 256]>,
     pub transaction_type: Option<u64>,
     pub effective_gas_price: Option<[u8; 32]>,
 
@@ -106,7 +118,9 @@ pub struct WvmTransactionReceipt {
     pub l1_gas_used: Option<[u8; 32]>,
 }
 
-#[derive(BorshSerialize, BorshDeserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(
+    BorshSerialize, BorshDeserialize, Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default,
+)]
 pub struct WvmLog {
     pub address: [u8; 20],
     pub topics: Vec<[u8; 32]>,
@@ -291,7 +305,7 @@ impl From<TransactionReceipt> for WvmTransactionReceipt {
             logs: receipt.logs.into_iter().map(Into::into).collect(),
             status: receipt.status.map(|s| s.as_u64()),
             root: receipt.root.map(|r| r.0),
-            logs_bloom: receipt.logs_bloom.0,
+            logs_bloom: Some(receipt.logs_bloom.0),
             transaction_type: receipt.transaction_type.map(|t| t.as_u64()),
             effective_gas_price: receipt.effective_gas_price.map(|p| {
                 let mut bytes = [0u8; 32];
@@ -461,7 +475,7 @@ impl From<WvmTransactionReceipt> for TransactionReceipt {
             logs: receipt.logs.into_iter().map(Into::into).collect(),
             status: receipt.status.map(U64::from),
             root: receipt.root.map(H256::from),
-            logs_bloom: ethers::types::Bloom::from(receipt.logs_bloom),
+            logs_bloom: ethers::types::Bloom::from(receipt.logs_bloom.unwrap()),
             transaction_type: receipt.transaction_type.map(U64::from),
             effective_gas_price: receipt
                 .effective_gas_price
