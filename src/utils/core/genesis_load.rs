@@ -44,8 +44,8 @@ pub struct GenesisConfig {
     pub merge_netsplit_block: u64,
     pub terminal_total_difficulty: u64,
     pub terminal_total_difficulty_passed: bool,
-    pub shanghai_time: u64,
-    pub cancun_time: u64,
+    pub shanghai_time: Option<u64>,
+    pub cancun_time: Option<u64>,
     #[serde(default)]
     pub deposit_contract_address: H160,
 }
