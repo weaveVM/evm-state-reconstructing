@@ -179,22 +179,37 @@ impl StateReconstructor {
             .modify_tx_env(|tx| {
                 tx.gas_price = rU256::ZERO;
             })
-            .modify_block_env(|block| {
+            .modify_block_env(|block: &mut revm::primitives::BlockEnv| {
                 block.gas_limit =
                     rU256::from_str_radix(&genesis.gas_limit.trim_start_matches("0x"), 16)
                         .unwrap_or(rU256::from(30_000_000));
-                block.number = rU256::from_str_radix(&genesis.number.trim_start_matches("0x"), 16)
-                    .unwrap_or_default();
-                block.timestamp =
-                    rU256::from_str_radix(&genesis.timestamp.trim_start_matches("0x"), 16)
-                        .unwrap_or_default();
-                block.coinbase = genesis.coinbase.0.into();
+                block.number = rU256::from_str_radix(
+                    &genesis
+                        .number
+                        .as_ref()
+                        .unwrap_or(&"0".to_string())
+                        .trim_start_matches("0x"),
+                    16,
+                )
+                .unwrap_or_default();
+                block.timestamp = rU256::from_str_radix(
+                    &genesis.timestamp.as_ref().unwrap().trim_start_matches("0x"),
+                    16,
+                )
+                .unwrap_or_default();
+                block.coinbase = genesis.coinbase.unwrap_or_default().0.into();
                 block.difficulty =
                     rU256::from_str_radix(&genesis.difficulty.trim_start_matches("0x"), 16)
                         .unwrap_or_default();
-                block.basefee =
-                    rU256::from_str_radix(&genesis.base_fee_per_gas.trim_start_matches("0x"), 16)
-                        .unwrap_or_default();
+                block.basefee = rU256::from_str_radix(
+                    &genesis
+                        .base_fee_per_gas
+                        .as_ref()
+                        .unwrap_or(&"0x00".to_string())
+                        .trim_start_matches("0x"),
+                    16,
+                )
+                .unwrap_or_default();
             })
             .build();
 
