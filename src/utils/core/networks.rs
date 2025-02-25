@@ -23,7 +23,7 @@ impl Networks {
     pub fn phala() -> Networks {
         Self {
             rpc_url: PHALA_RPC_URL.to_string(),
-            wvm_archiver_url: None,
+            wvm_archiver_url: Some("https://phala.wvm.network".to_string()),
             genesis_file: load_genesis_from_file("./genesis/phala_mainnet.json"),
             rpc_provider: Provider::<Http>::try_from(PHALA_RPC_URL).unwrap(),
         }
